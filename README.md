@@ -84,7 +84,9 @@ it clever. What a plain dict does **not** give you:
 | Relational multi-hop retrieval (`chain`) | ✗ one value | ✓ follows dependency chains |
 | Canonical identity (`sha`) | ✗ | ✓ byte-exact twins, byte-exact across process death |
 
-The fusion row is the one that matters. Measured end-to-end with buried facts:
+The fusion row is the one that matters. Measured end-to-end with buried facts
+in the parent project (this repo ships a 20-fact reproduction,
+[`examples/fuse_logits.py`](examples/fuse_logits.py), not the original 40):
 **bare model 0/40 · facts-in-context 36/40 · fused 40/40.** The fused system
 ties the fair baseline and adds an exactness edge — because the table's counts
 override the softmax on keys it knows and leave it alone on keys it doesn't.
@@ -137,9 +139,9 @@ the mechanism behind the 40/40. Needs a local model you can read logits from
 (transformers, MLX, llama.cpp).
 
 **c) Life + RAG + model — the full memory system.** The Life is exact-key
-*only*. Measured: on 20 buried facts, entity-named queries hit 10/10 through
-the Life, but paraphrased queries hit **0/10** — while embedding-based RAG got
-those 10/10. They're different organs: Life = exact/permanent/honest, RAG =
+*only*. Measured in the parent project (no embedder ships in this repo): on 20
+buried facts, entity-named queries hit 10/10 through the Life, but paraphrased
+queries hit **0/10** — while embedding-based RAG got those 10/10. They're different organs: Life = exact/permanent/honest, RAG =
 fuzzy/semantic, model = reasoning. [`examples/agent_ollama.py`](examples/agent_ollama.py)
 runs the two-session demo (store facts, kill the process, fresh session
 recalls) against any local ollama model.
@@ -155,12 +157,12 @@ recalls) against any local ollama model.
 | Abstention on unseen keys | 1,000/1,000 (0 guesses) | [EXACT] |
 | Twin determinism | SHA `0ffd7ccc8e97f01b` on any machine | [EXACT] |
 | Recall across process death | byte-exact (cross-process SHA match) | [EXACT] |
-| Fused recall vs fair baseline | bare 0/40 · in-context 36/40 · fused 40/40 | [EXACT protocol, HW model] |
+| Fused recall vs fair baseline | bare 0/40 · in-context 36/40 · fused 40/40 | [EXACT protocol, HW model, parent project — repo ships a 20-fact version] |
 | Recall latency @100k facts | ~1 µs in-process, O(1) flat | [HW] |
 | Recall latency @15M facts | 0.2–1.4 µs (still flat) | [HW, measured in parent project — script not shipped] |
 | Memory cost | ~330–410 B/fact RAM, ~35–42 B/fact on disk | [HW] |
 | Store scale tested | 30M facts, 0 key collisions | [HW, parent project; note: exact string keys are collision-free *by construction*] |
-| Paraphrase recall | Life 0/10 vs semantic RAG 10/10 | [EXACT protocol, HW embedder — Life loses this one; see §7] |
+| Paraphrase recall | Life 0/10 vs semantic RAG 10/10 | [EXACT protocol, HW embedder, parent project — Life loses this one; see §7] |
 | Context-window arithmetic | 1M facts ≈ 6M tokens | [EXACT arithmetic] |
 | Same facts as a Life store | ~330–410 MB RAM, one laptop | [HW projection from B/fact] |
 | Exact recall at that scale | context windows that large exist, but per-fact recall degrades under multi-fact load (Pillar 5); the Life stays exact | [HW, Pillar 5] |
@@ -184,9 +186,10 @@ recalls) against any local ollama model.
   operation (~110 ms per put at 100k facts [HW]). The µs numbers are
   in-process `recall()`. At large stores, use the `Life` class in-process;
   the CLI is for zero-integration convenience.
-- **Some §6 numbers are inherited.** The 15M-latency and 30M-scale rows were
-  measured in the parent project; this repo's own smoke test stops at 100k.
-  They're labeled as such — don't quote them as reproduced-here.
+- **Some §6 numbers are inherited.** The 15M-latency, 30M-scale, 40-fact
+  fused-recall, and paraphrase-vs-RAG rows were measured in the parent
+  project; this repo's own smoke test stops at 100k and its fusion example
+  at 20 facts. They're labeled as such — don't quote them as reproduced-here.
 - **Determinism means byte-exact replay,** not correctness: store a wrong
   fact and it will recall the wrong fact, exactly, forever (until you revise).
 - **No commercial-value claim.** This repo claims exactly what its tests

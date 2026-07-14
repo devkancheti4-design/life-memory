@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Smoke test for life.py — every product claim, measured, pass/fail.
+"""Smoke test for life.py — the core storage claims, measured, pass/fail.
+(Model-fusion and paraphrase claims are NOT covered here — see README §6
+for each number's provenance.)
 
 Deterministic checks (same result on every machine) are marked [EXACT].
 Machine-dependent measurements (latency, RAM) are marked [HW] and are

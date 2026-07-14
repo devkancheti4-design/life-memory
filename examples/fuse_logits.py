@@ -45,10 +45,14 @@ def main():
     model.eval()
 
     # -- the facts: arbitrary key -> value bindings the model cannot know --
-    values = ["crimson", "walnut", "glacier", "ember", "quartz", "meadow",
-              "cobalt", "raven", "juniper", "onyx", "saffron", "birch",
-              "indigo", "maple", "coral", "slate", "amber", "fern",
-              "topaz", "cedar"][: args.n]
+    pool = ["crimson", "walnut", "glacier", "ember", "quartz", "meadow",
+            "cobalt", "raven", "juniper", "onyx", "saffron", "birch",
+            "indigo", "maple", "coral", "slate", "amber", "fern",
+            "topaz", "cedar"]
+    if args.n > len(pool):
+        sys.exit(f"--n caps at {len(pool)} (the closed candidate pool); "
+                 f"the parent project's 40-fact run is not shipped here")
+    values = pool[: args.n]
     keys = [f"project.codeword{i}" for i in range(len(values))]
     life = Life()
     for k, v in zip(keys, values):
