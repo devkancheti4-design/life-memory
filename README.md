@@ -52,18 +52,20 @@ cd life-memory
 python3 smoke_test.py        # ~10 s, stdlib only, deterministic pass/fail
 ```
 
-The smoke test proves every claim on this page on your machine: 10,000/10,000
+The smoke test proves the following claims on your machine: 10,000/10,000
 exact recalls, revision with retained history, 1,000/1,000 abstentions on
 unseen keys, byte-identical twins (golden SHA `0ffd7ccc8e97f01b` — the same on
 your machine as on ours), recall across process death, 3-hop relational chains,
-gated fusion math, and 100k-fact scale.
+gated fusion math, and 100k-fact scale. (The larger-scale and model-fusion
+numbers in §6 have their own provenance — labeled there.)
 
 Try it by hand:
 
 ```bash
 python3 life.py put "wifi.password" "SunFlower42"
-python3 life.py get "wifi.password"     # -> SunFlower42, in ~microseconds
-python3 life.py get "wifi.pasword"      # -> ABSTAIN (exact-key: typos abstain, not guess)
+python3 life.py get "wifi.password"     # -> SunFlower42  (in-process recall ~1 µs [HW];
+                                        #    CLI round-trip ~30–100 ms: interpreter + file load)
+python3 life.py get "wifi.pasword"      # -> ABSTAIN, exit 3 (exact-key: typos abstain, not guess)
 python3 life.py sha                     # -> identity hash; twins match byte-exactly
 ```
 
@@ -97,7 +99,8 @@ bash proof/run_proof.sh          # pillars I–IV, ~2 min, stdlib only, determin
 bash proof/run_proof.sh --llm    # pillar V on real local LLMs (needs ollama)
 ```
 
-The five pillars, one line each (numbers from the deterministic experiments):
+The five pillars, one line each (pillars 1–4 are deterministic and reproduce
+bit-for-bit; pillar 5 is measured on real local LLMs via ollama [HW]):
 
 1. **Exact recall is optimizer-inaccessible.** The training gradient vanishes
    proportionally to remaining error (measured over 5 orders of magnitude);
@@ -111,8 +114,8 @@ The five pillars, one line each (numbers from the deterministic experiments):
    60/60 — "I don't know" is structural, not trained.
 4. **Writing facts into weights is conditionally destructive — decidably.**
    Agreement-bearing streams self-heal (75%→92%); conflicting streams collapse
-   to 8% retention. The table holds 100% in both regimes. That decidable split
-   is the routing law of the fusion.
+   to 8% retention at the trough, ending at 42% (chance = 25%). The table holds
+   100% in both regimes. That decidable split is the routing law of the fusion.
 5. **It's behaviorally real in production models.** llama3.2:3b and llama3:8b
    at temperature 0 drop from 100% to ~88% per-fact recall as queried facts
    grow 4 → 64, and ~80% of the errors are another fact's value, confidently
@@ -153,11 +156,14 @@ recalls) against any local ollama model.
 | Twin determinism | SHA `0ffd7ccc8e97f01b` on any machine | [EXACT] |
 | Recall across process death | byte-exact (cross-process SHA match) | [EXACT] |
 | Fused recall vs fair baseline | bare 0/40 · in-context 36/40 · fused 40/40 | [EXACT protocol, HW model] |
-| Recall latency @100k facts | ~1 µs, O(1) flat | [HW] |
-| Recall latency @15M facts | 0.2–1.4 µs (measured, still flat) | [HW] |
-| Memory cost | ~400 B/fact RAM, ~40 B/fact on disk | [HW] |
-| Store scale tested | 30M facts, 0 key collisions | [EXACT] |
-| Context-window comparison | 1M facts ≈ 6M tokens — no context window holds it; the Life holds it in ~410 MB RAM | [EXACT arithmetic] |
+| Recall latency @100k facts | ~1 µs in-process, O(1) flat | [HW] |
+| Recall latency @15M facts | 0.2–1.4 µs (still flat) | [HW, measured in parent project — script not shipped] |
+| Memory cost | ~330–410 B/fact RAM, ~35–42 B/fact on disk | [HW] |
+| Store scale tested | 30M facts, 0 key collisions | [HW, parent project; note: exact string keys are collision-free *by construction*] |
+| Paraphrase recall | Life 0/10 vs semantic RAG 10/10 | [EXACT protocol, HW embedder — Life loses this one; see §7] |
+| Context-window arithmetic | 1M facts ≈ 6M tokens | [EXACT arithmetic] |
+| Same facts as a Life store | ~330–410 MB RAM, one laptop | [HW projection from B/fact] |
+| Exact recall at that scale | context windows that large exist, but per-fact recall degrades under multi-fact load (Pillar 5); the Life stays exact | [HW, Pillar 5] |
 
 ## 7. Honest limits — read before you rely on it
 
@@ -170,9 +176,17 @@ recalls) against any local ollama model.
   in-context already gets ~90% (36/40). The Life's win is the last 10%
   exactness, plus permanence past the context window, plus honest abstention —
   not a new kind of intelligence.
-- **Growth is O(K).** Exactness is bought with ~400 B/fact RAM. 1M facts ≈
-  410 MB. That's the trade — the proof's Pillar II shows every fixed-size
-  alternative pays in silent forgetting instead.
+- **Growth is O(K).** Exactness is bought with ~330–410 B/fact RAM [HW]. 1M
+  facts ≈ 330–410 MB. That's the trade — the proof's Pillar II shows every
+  fixed-size alternative pays in silent forgetting instead.
+- **The CLI is the slow path.** Every CLI call is a fresh interpreter plus a
+  whole-file load, and every CLI write rewrites the whole file — O(N) per
+  operation (~110 ms per put at 100k facts [HW]). The µs numbers are
+  in-process `recall()`. At large stores, use the `Life` class in-process;
+  the CLI is for zero-integration convenience.
+- **Some §6 numbers are inherited.** The 15M-latency and 30M-scale rows were
+  measured in the parent project; this repo's own smoke test stops at 100k.
+  They're labeled as such — don't quote them as reproduced-here.
 - **Determinism means byte-exact replay,** not correctness: store a wrong
   fact and it will recall the wrong fact, exactly, forever (until you revise).
 - **No commercial-value claim.** This repo claims exactly what its tests

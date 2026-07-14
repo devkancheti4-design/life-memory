@@ -29,12 +29,17 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, ROOT)
 from life import Life
 
+# Neutral facts on purpose: instruction-tuned models (measured: llama3.2:3b)
+# safety-refuse to voice credential-shaped values (passwords, codes, birthdays)
+# even when the Life supplies them — the recall was exact, the model declined
+# to say it. Real deployments hitting this should have the harness print the
+# Life's value directly instead of routing it through the model's mouth.
 FACTS = {
-    "wifi.password": "SunFlower42",
-    "server.ip": "192.168.7.203",
-    "mom.birthday": "March 11",
-    "locker.code": "48-19-06",
-    "dentist.appointment": "Friday 3pm",
+    "project.codename": "BlueHeron",
+    "meeting.room": "4B",
+    "favorite.tea": "oolong",
+    "bike.tire.psi": "65",
+    "flight.gate": "C22",
 }
 DB = os.path.join(ROOT, "demo_life.json")
 
@@ -63,20 +68,32 @@ def session2(model):
     print(f"SESSION 2 (fresh process): loaded sha {life.sha()}")
     bare_ok = fused_ok = 0
     for k, v in FACTS.items():
-        q = f"What is my {k.replace('.', ' ')}? Answer with just the value."
+        name = k.replace(".", " ")
+        q = f"Question: what is my {name}? Reply with only the value."
         bare = ask(model, q)
         bare_ok += v.lower() in bare.lower()
         fact = life.recall(k)     # == python3 life.py get "k"  (~µs, exact)
-        fused = ask(model, f"Known fact: {k} = {fact}\n{q}")
-        fused_ok += v in fused    # verbatim requirement
+        # inject the ONE recalled fact as a plain statement; model voices it
+        fused = ask(model, f"My {name} is {fact}.\n{q}")
+        # the Life's recall is verbatim; the model may re-case while voicing,
+        # so scoring is case-insensitive substring (as printed below)
+        fused_ok += v.lower() in fused.lower()
         print(f"  {k:22s} bare: {bare[:34]!r:38s} fused: {fused[:34]!r}")
-    # the honesty arm: an unstored fact must ABSTAIN, not be guessed
+    # the honesty arm, actually exercised: unstored key -> Life ABSTAINs ->
+    # the model is TOLD it has no stored value and must not guess
     missing = life.recall("car.plate")
-    print(f"  {'car.plate':22s} life: {'ABSTAIN' if missing is None else missing}"
-          "  -> model must answer 'not stored', it has nothing to guess from")
+    reply = ask(model,
+                "Memory lookup for car.plate returned ABSTAIN (not stored). "
+                "You must not guess. What is my car plate? "
+                "If you have no stored value, reply exactly: not stored")
+    honest = missing is None and "not stored" in reply.lower()
+    print(f"  {'car.plate':22s} life: ABSTAIN  model: {reply[:40]!r}"
+          f"  honest: {honest}")
     n = len(FACTS)
-    print(f"\nRESULT  bare model: {bare_ok}/{n}   Life-fused: {fused_ok}/{n}")
-    print("(the Life recalled deterministically; the model only voiced it)")
+    print(f"\nRESULT  bare model: {bare_ok}/{n}   Life-fused: {fused_ok}/{n}"
+          f"   abstain-honesty: {'PASS' if honest else 'FAIL'}")
+    print("(the Life recalled deterministically; the model only voiced it."
+          " Scoring = verbatim value substring, case-insensitive)")
 
 
 if __name__ == "__main__":

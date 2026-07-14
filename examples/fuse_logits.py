@@ -86,6 +86,11 @@ def main():
     print(f"  FUSED       {fused_ok}/{n}   (bare + life.blend — no facts in the prompt)")
     print("honest read: fused should tie-or-beat in-context on EXACT keys;")
     print("the Life contributes exactness+permanence, not intelligence.")
+    if incontext_ok <= max(2, n // 10):
+        print(f"NOTE: the IN-CONTEXT arm collapsed ({incontext_ok}/{n}) — this model"
+              " can't use pasted facts under this prompt. Use an instruct model"
+              " (e.g. the default Qwen2.5-0.5B-Instruct) for a meaningful fair"
+              " baseline; beating a collapsed baseline proves nothing.")
 
 
 if __name__ == "__main__":

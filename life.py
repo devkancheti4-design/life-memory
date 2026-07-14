@@ -16,15 +16,20 @@ Pair it with your model (reasoning) and, if you need fuzzy search, RAG.
 
 CLI:
   python3 life.py put  KEY VALUE     store / revise a fact (newest wins)
-  python3 life.py get  KEY           exact recall — prints value or ABSTAIN
+  python3 life.py get  KEY           exact recall — value (exit 0) or ABSTAIN (exit 3)
   python3 life.py history KEY        full revision history with counts
   python3 life.py link A B           relate two keys (A -> B)
   python3 life.py chain KEY          follow relations multi-hop
-  python3 life.py forget KEY         delete a key
-  python3 life.py stats              facts, disk bytes, identity sha
+  python3 life.py forget KEY         delete a key (exit 3 if it was absent)
+  python3 life.py stats              keys, disk bytes, identity sha
   python3 life.py sha                identity hash (byte-exact twins match)
 
 The database file is ./life.json (override: --db PATH or env LIFE_DB).
+
+Performance honesty: recall() in-process is ~1 microsecond [HW]. The CLI
+round-trip is ~30-100 ms — interpreter start + whole-file load — and every
+CLI write rewrites the whole file (O(N)). At large stores, use the Life
+class in-process; the CLI is the zero-integration path, not the fast path.
 """
 import json
 import hashlib
@@ -149,7 +154,9 @@ class Life:
         tmp = p + ".tmp"
         with open(tmp, "w", encoding="utf-8") as f:
             f.write(self.dumps())
-        os.replace(tmp, p)  # atomic: a crash never corrupts the memory
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, p)  # atomic rename: a process crash never corrupts it
         return p
 
     def load(self, path=None):
@@ -180,10 +187,13 @@ def _cli(argv):
     elif cmd == "get" and len(rest) == 1:
         v = life.recall(rest[0])
         print("ABSTAIN" if v is None else v)
+        if v is None:
+            return 3  # scripts can distinguish hit (0) from abstain (3)
     elif cmd == "history" and len(rest) == 1:
         h = life.history(rest[0])
         if not h:
             print("ABSTAIN")
+            return 3
         for v, c in h:
             print(f"{c}\t{v}")
     elif cmd == "link" and len(rest) == 2:
@@ -196,11 +206,13 @@ def _cli(argv):
         gone = life.forget(rest[0])
         life.save(db)
         print("OK" if gone is not None else "ABSTAIN")
+        if gone is None:
+            return 3
     elif cmd == "stats":
         n = len(life.store)
         size = os.path.getsize(db) if os.path.exists(db) else 0
-        print(f"facts {n}  disk {size} B"
-              + (f" ({size // n} B/fact)" if n else "")
+        print(f"keys {n} (incl. relation edges)  disk {size} B"
+              + (f" ({size // n} B/key)" if n else "")
               + f"  sha {life.sha()}  db {db}")
     elif cmd == "sha":
         print(life.sha())

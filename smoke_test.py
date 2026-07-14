@@ -108,7 +108,29 @@ check("stored value dominates softmax", max(q, key=q.get) == "tokyo",
 check("distribution still sums to 1", abs(sum(q.values()) - 1.0) < 1e-9)
 
 print("\n" + "=" * 68)
-print("8. SCALE — 100,000 facts: latency + memory [HW — reported, not gated]")
+print("8. CLI — round-trip behavior and exit codes [EXACT + HW timing]")
+print("=" * 68)
+cli = os.path.join(os.path.dirname(os.path.abspath(__file__)), "life.py")
+db = tempfile.mktemp(suffix=".json")
+env = dict(os.environ, LIFE_DB=db)
+subprocess.run([sys.executable, cli, "put", "cli.test", "hello world"],
+               capture_output=True, env=env)
+t0 = time.perf_counter()
+r_hit = subprocess.run([sys.executable, cli, "get", "cli.test"],
+                       capture_output=True, text=True, env=env)
+ms = (time.perf_counter() - t0) * 1e3
+r_miss = subprocess.run([sys.executable, cli, "get", "cli.absent"],
+                        capture_output=True, text=True, env=env)
+check("CLI put->get verbatim", r_hit.stdout.strip() == "hello world"
+      and r_hit.returncode == 0)
+check("CLI abstain prints ABSTAIN, exit 3",
+      r_miss.stdout.strip() == "ABSTAIN" and r_miss.returncode == 3)
+print(f"  CLI round-trip {ms:.0f} ms [HW] — interpreter + file load;"
+      " the µs figure below is in-process recall()")
+os.path.exists(db) and os.unlink(db)
+
+print("\n" + "=" * 68)
+print("9. SCALE — 100,000 facts: latency + memory [HW — reported, not gated]")
 print("=" * 68)
 tracemalloc.start()
 big = Life()

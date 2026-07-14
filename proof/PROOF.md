@@ -94,8 +94,8 @@ Sequential training, two regimes, same net:
 - **Agreement regime** (tasks share one latent rule): retention dips then **self-heals**
   (75% → 92%) while held-out generalization reaches 100% — later data is evidence, not
   interference.
-- **Conflict regime** (rule changes per task; keys disjoint): retention collapses to
-  **33% → 25% → 8%** (chance = 25%).
+- **Conflict regime** (rule changes per task; keys disjoint): retention collapses through
+  **33% → 25% → 8%** at the trough, ending at 42% (chance = 25%).
 - The count table: **100% retention in both regimes**, 0% generalization, abstains on
   unseen keys.
 
@@ -126,7 +126,7 @@ no shuffle; it needs the table organ or replay. There is no fourth option in the
 
 ## 6. Life holds exactly the complementary corner — and only that corner
 
-Measured previously in this project (red-teamed; see the repo's dossiers):
+Measured previously in the parent project (red-teamed there; **not reproducible from this repo alone** — quoted with that provenance):
 
 - Exact-key store: **0 collisions at 10M/20M/30M facts**; ~410 bytes and ~1 µs per
   fact, O(1) flat — exact and permanent where Pillars I–II are leaky and mortal.
@@ -194,5 +194,5 @@ network) — same numbers on every run, every machine.
 
 *Produced by the Reasoning Engine loop (see [README.md](README.md)): sector-window
 question mining → answer → adversarial critique → deterministic experiment → commit.
-The engine's evolved rulebook and full round history are in [`memory/`](memory/) and
-[`rounds/`](rounds/).*
+The engine's evolved rulebook and full round history live in the parent project
+(research_miner/memory and research_miner/rounds — not shipped in this repo).*
