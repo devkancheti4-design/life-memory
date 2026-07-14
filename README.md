@@ -6,6 +6,10 @@ the Life keeps the facts: **exact** (verbatim, not paraphrased), **permanent**
 (survives the conversation, the context window, and the process), and **honest**
 (on a fact it doesn't have, it says `ABSTAIN` — it cannot guess).
 
+**"Isn't it just a dict?"** → [WHAT_IS_LIFE.md](WHAT_IS_LIFE.md) — the straight
+answer, including Claude's own honest comparison of itself against this file.
+Every difference on that page is a command you can run, not a claim.
+
 ## 1. The prompt — this is the product
 
 Get [`life.py`](life.py) into your working directory, then paste this into any
@@ -145,6 +149,41 @@ queries hit **0/10** — while embedding-based RAG got those 10/10. They're diff
 fuzzy/semantic, model = reasoning. [`examples/agent_ollama.py`](examples/agent_ollama.py)
 runs the two-session demo (store facts, kill the process, fresh session
 recalls) against any local ollama model.
+
+**d) Tool calling — big API models (Claude, GPT, Gemini).** The same protocol
+as §1, delivered as two tools instead of a prompt. Register these schemas with
+any function-calling API:
+
+```json
+[{"name": "memory_put",
+  "description": "Store or revise an exact fact the user states. Newest value wins; history is kept.",
+  "input_schema": {"type": "object",
+    "properties": {"key":   {"type": "string", "description": "lowercase dot-notation, e.g. wifi.password"},
+                   "value": {"type": "string", "description": "the exact value, verbatim"}},
+    "required": ["key", "value"]}},
+ {"name": "memory_get",
+  "description": "Exact recall before answering anything that depends on a stored fact. Returns the verbatim value, or ABSTAIN — if ABSTAIN, say the fact is not stored; never guess.",
+  "input_schema": {"type": "object",
+    "properties": {"key": {"type": "string"}},
+    "required": ["key"]}}]
+```
+
+and route the calls to the file (whole handler, any language):
+
+```python
+import subprocess
+def handle(tool, args):
+    if tool == "memory_put":
+        return subprocess.run(["python3", "life.py", "put", args["key"], args["value"]],
+                              capture_output=True, text=True).stdout.strip()
+    if tool == "memory_get":
+        return subprocess.run(["python3", "life.py", "get", args["key"]],
+                              capture_output=True, text=True).stdout.strip()  # value or "ABSTAIN"
+```
+
+The model does the reasoning; the file does the remembering. Your facts stay
+in `life.json` on your disk — the API only ever sees the one fact the model
+asked for.
 
 ## 6. Measured numbers
 
